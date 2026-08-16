@@ -37,53 +37,83 @@ const EXCLUDED = new Set(["help", "skill"]);
  * Volontairement insistante — dit À LA FOIS ce que fait l'outil ET quand
  * l'invoquer, en listant les verbes métier et les cas implicites (un simple
  * fichier .go fourni sans nommer l'outil).
+ *
+ * Chaque verbe reste collé à Go : « construire » ou « packager » seuls
+ * déclenchaient sur un `cargo build` ou un packaging Electron. La frontière
+ * finale écarte les quatre confusions plausibles — autre langage, image
+ * Docker, `go run`, `go test` — sur le modèle des autres skills maison.
  */
 const SKILL_DESCRIPTION =
-  "Compile des programmes Go pour plusieurs architectures (macOS, Linux, " +
-  "Windows) via Docker, sans que Go soit installé sur la machine, grâce à la " +
-  "CLI `build-go`. À UTILISER DÈS QUE l'utilisateur veut compiler, builder, " +
-  "construire, packager ou produire un binaire Go, obtenir un exécutable pour " +
-  "une autre plateforme, faire de la compilation croisée, ou vérifier que du " +
-  "code Go compile. DÉCLENCHE AUSSI ce skill quand l'utilisateur fournit " +
-  "simplement un fichier `.go` ou un dossier de projet Go en demandant « tu " +
-  "peux me le compiler ? », « fais-moi un binaire », « il me faut la version " +
-  "Windows / Linux / Mac », « ça compile ? », sans nommer explicitement " +
-  "l'outil ni Docker. Verbes déclencheurs : compiler, builder, construire, " +
-  "packager, produire un binaire, cross-compiler, générer un exécutable Go.";
+  "Compile du code Go en binaires pour macOS, Linux et Windows (amd64 et " +
+  "arm64) dans un conteneur Docker `golang`, sans que Go soit installé sur " +
+  "la machine, grâce à la CLI `build-go`. À UTILISER DÈS QUE l'utilisateur " +
+  "veut compiler un programme Go, en obtenir un exécutable ou un binaire, le " +
+  "cross-compiler pour une autre plateforme, récupérer un `.exe` Windows ou " +
+  "un binaire Linux / macOS / Apple Silicon / Raspberry Pi, préparer les " +
+  "binaires d'une release Go, savoir quelles architectures sont compilables " +
+  "(`build-go targets`), ou diagnostiquer un échec de compilation Go et " +
+  "l'état de Docker (`build-go doctor`). DÉCLENCHE AUSSI ce skill quand " +
+  "l'utilisateur fournit juste un fichier `.go`, un `go.mod` ou un dossier " +
+  "de projet Go et dit « tu peux me le compiler ? », « fais-moi un " +
+  "binaire », « il me faut la version Windows », « est-ce que ça compile ? », " +
+  "« je n'ai pas Go installé sur cette machine », sans nommer l'outil ni " +
+  "Docker. Verbes déclencheurs, toujours appliqués à du code Go : compiler, " +
+  "builder, cross-compiler, produire un binaire, générer un exécutable. " +
+  "Frontière : ce skill ne fait QUE produire des binaires Go. Il ne compile " +
+  "pas un autre langage (Rust, C, TypeScript…), ne construit pas d'image " +
+  "Docker (`docker build`, Dockerfile), n'exécute pas (`go run`), ne teste " +
+  "pas (`go test`) et ne sert pas à lire, écrire ou corriger du code Go sans " +
+  "en produire de binaire.";
 
 const TOOL_PURPOSE =
-  "CLI de compilation Go multi-architectures. Compile un fichier `.go` isolé " +
-  "ou un package d'un module Go pour macOS, Linux et Windows (amd64 et " +
-  "arm64), en déléguant la compilation à un conteneur Docker officiel " +
-  "`golang`. La machine hôte n'a donc besoin d'aucune installation de Go — " +
-  "seulement de Docker.";
+  "CLI de compilation Go multi-architectures. Compile le package `main` d'un " +
+  "module Go — ou un fichier `.go` autonome hors module — pour macOS, Linux " +
+  "et Windows (amd64 et arm64), en déléguant la compilation à l'image Docker " +
+  "officielle `golang:alpine`. La machine hôte n'a donc besoin d'aucune " +
+  "installation de Go — seulement de Docker.";
 
 const INVOCATION_NOTES = [
   "Invocation par le shell : `build-go [commande] [options]`. `build` est la " +
     "commande par défaut : `build-go ./cmd/outil` équivaut à " +
     "`build-go build ./cmd/outil`.",
-  "Aucune configuration, aucun secret, aucune variable d'environnement à " +
-    "fournir. Le seul prérequis est un daemon Docker démarré.",
+  "Aucune configuration, aucun secret, aucune variable d'environnement " +
+    "requise. Le seul prérequis est un daemon Docker démarré, capable de " +
+    "monter le dossier des sources.",
   "Vérifier l'état de Docker avec `build-go doctor` avant de conclure à une " +
     "erreur de code : un daemon éteint fait échouer toutes les cibles.",
   "Sortie : messages de progression sur stderr, données sur stdout. L'option " +
     "`--json` sur `build` et `targets` produit un rapport JSON sur stdout et " +
     "rien d'autre — c'est la forme à utiliser pour lire le résultat par " +
     "programme.",
-  "Code de sortie 0 = toutes les cibles ont compilé, 1 = au moins une a " +
-    "échoué (le détail est dans le champ `log` de chaque résultat en mode " +
-    "`--json`).",
+  "Rapport JSON de `build` : `{ ok, source, moduleRoot, image, outputDir, " +
+    "binaryName, warnings, results }`, chaque entrée de `results` portant " +
+    "`{ target, goos, goarch, ok, file, path, bytes, log }`. Les " +
+    "avertissements de résolution de la source ne sont pas affichés en mode " +
+    "`--json` : ils ne vivent que dans `warnings`.",
+  "Codes de sortie : `build` rend 0 si toutes les cibles ont compilé, 1 si " +
+    "au moins une a échoué ; `doctor` rend 1 quand le daemon Docker ne " +
+    "répond pas. En `--json`, le détail d'un échec est dans le champ `log` " +
+    "du résultat concerné.",
   "`DEBUG=1` affiche la ligne `docker run` complète de chaque compilation.",
 ];
 
 const USAGE_RULES = [
-  "PASSER UN DOSSIER, PAS UN FICHIER, dès que le projet a un `go.mod` : la " +
-    "CLI remonte l'arborescence jusqu'au module, monte sa racine et compile " +
-    "le package entier. Un programme réparti sur plusieurs fichiers ne " +
-    "compile correctement que dans ce mode.",
-  "Un fichier `.go` isolé (sans `go.mod` nulle part au-dessus) est accepté, " +
-    "mais seul ce fichier est compilé : c'est réservé aux programmes " +
-    "autonomes n'utilisant que la bibliothèque standard.",
+  "CE QUI EST COMPILÉ, C'EST LE PACKAGE DU DOSSIER VISÉ. Passer le dossier " +
+    "qui contient le `package main`, et non la racine du projet — sauf si le " +
+    "`main` vit à la racine. Dans un layout `projet/cmd/outil/`, c'est " +
+    "`build-go ./cmd/outil` ; `build-go .` lancé à la racine échoue, faute " +
+    "de `package main` à cet endroit.",
+  "Désigner un fichier `.go` d'un module revient à désigner son dossier : la " +
+    "CLI remonte jusqu'au `go.mod`, monte la racine du module et compile le " +
+    "package entier. `build-go ./cmd/outil/main.go` et `build-go ./cmd/outil` " +
+    "produisent le même binaire ; un simple avertissement rappelle que tout " +
+    "le package est pris.",
+  "Hors module (aucun `go.mod` nulle part au-dessus), c'est l'inverse : il " +
+    "faut désigner un fichier `.go` précis, un dossier est REFUSÉ avec une " +
+    "erreur. Seul ce fichier est compilé, les autres `.go` du dossier sont " +
+    "ignorés — réservé aux programmes autonomes n'utilisant que la " +
+    "bibliothèque standard. Pour compiler tout un package, créer d'abord le " +
+    "module : `go mod init <nom>`.",
   "Sans `--arch`, seules les cibles par défaut sont compilées " +
     "(darwin-arm64, darwin-amd64, windows-amd64). Utiliser `--arch` pour " +
     "toute autre cible, notamment Linux : `--arch linux-amd64`, ou " +
@@ -91,22 +121,30 @@ const USAGE_RULES = [
   "Lister les cibles valides avec `build-go targets` avant de composer une " +
     "valeur de `--arch`. Ne jamais inventer un nom d'architecture : une " +
     "valeur inconnue fait échouer la commande avant toute compilation.",
-  "Le dossier de sortie par défaut est `build/` à la racine du module (et " +
-    "non dans le répertoire courant). Le préciser avec `--out` si " +
-    "l'utilisateur attend les binaires ailleurs.",
+  "Le dossier de sortie par défaut est `build/` à la racine du module — hors " +
+    "module, `build/` à côté du fichier compilé. Dans les deux cas, ce n'est " +
+    "pas le répertoire courant : le préciser avec `--out` si l'utilisateur " +
+    "attend les binaires ailleurs.",
   "Les binaires sont produits sous la forme `<nom>-<cible>`, avec le suffixe " +
     "`.exe` pour Windows. Le nom se force avec `--name`.",
   "Les binaires sont compilés avec `-trimpath` et sans symboles de debug. " +
     "Utiliser `--no-strip` si l'utilisateur veut déboguer le binaire produit.",
-  "La première compilation télécharge l'image Docker `golang` (plusieurs " +
+  "La première compilation télécharge l'image `golang:alpine` (quelques " +
     "centaines de Mio) : c'est normal qu'elle soit longue. Les suivantes " +
-    "réutilisent l'image et les volumes de cache Go.",
+    "réutilisent l'image et les volumes de cache Go. `--go-version 1.24` " +
+    "vise `golang:1.24-alpine` ; `--image` impose une référence complète et " +
+    "ignore `--go-version`.",
 ];
 
 const EXAMPLES: Record<string, string[]> = {
   build: [
+    "# Layout cmd/ : viser le dossier du package main",
     "build-go ./cmd/outil",
+    "# Sans argument : le package du répertoire courant",
+    "build-go",
+    "# Package main à la racine du module",
     "build-go .",
+    "# Fichier autonome, hors module",
     "build-go main.go",
     "build-go ./cmd/outil --arch linux-amd64",
     "build-go ./cmd/outil --arch all --out ./dist",

@@ -52,9 +52,15 @@ export function buildCli(): Command {
     .version(VERSION);
 
   program
-    .command("build [source]", { isDefault: true })
+    .command("build", { isDefault: true })
     .description(
-      "Compile un fichier .go ou un package Go pour les architectures cibles",
+      "Compile le package main d'un module Go, ou un fichier .go autonome, pour les architectures cibles",
+    )
+    // Argument déclaré à part plutôt que dans le nom de la commande : c'est la
+    // seule forme qui porte une description, et le skill généré la reprend.
+    .argument(
+      "[source]",
+      "Dossier contenant le package main à compiler (ex. ./cmd/outil), ou fichier .go autonome hors module (défaut : le répertoire courant)",
     )
     .option(
       "-a, --arch <liste>",

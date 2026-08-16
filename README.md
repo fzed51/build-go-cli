@@ -210,8 +210,9 @@ build-go ./cmd/monoutil --name monoutil     # nom du binaire
 build-go [build] [source] [options]
 ```
 
-`source` est un dossier de package, un fichier `.go`, ou rien (le dossier
-courant). `build` est la commande par défaut : elle peut être omise.
+`source` est le **dossier contenant le `package main`** (ex. `./cmd/outil`), un
+**fichier `.go` autonome** hors module, ou rien — le répertoire courant. `build`
+est la commande par défaut : elle peut être omise.
 
 | Option | Effet |
 | --- | --- |
