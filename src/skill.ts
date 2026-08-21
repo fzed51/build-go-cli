@@ -44,26 +44,21 @@ const EXCLUDED = new Set(["help", "skill"]);
  * Docker, `go run`, `go test` — sur le modèle des autres skills maison.
  */
 const SKILL_DESCRIPTION =
-  "Compile du code Go en binaires pour macOS, Linux et Windows (amd64 et " +
-  "arm64) dans un conteneur Docker `golang`, sans que Go soit installé sur " +
-  "la machine, grâce à la CLI `build-go`. À UTILISER DÈS QUE l'utilisateur " +
-  "veut compiler un programme Go, en obtenir un exécutable ou un binaire, le " +
-  "cross-compiler pour une autre plateforme, récupérer un `.exe` Windows ou " +
-  "un binaire Linux / macOS / Apple Silicon / Raspberry Pi, préparer les " +
-  "binaires d'une release Go, savoir quelles architectures sont compilables " +
-  "(`build-go targets`), ou diagnostiquer un échec de compilation Go et " +
-  "l'état de Docker (`build-go doctor`). DÉCLENCHE AUSSI ce skill quand " +
-  "l'utilisateur fournit juste un fichier `.go`, un `go.mod` ou un dossier " +
-  "de projet Go et dit « tu peux me le compiler ? », « fais-moi un " +
-  "binaire », « il me faut la version Windows », « est-ce que ça compile ? », " +
-  "« je n'ai pas Go installé sur cette machine », sans nommer l'outil ni " +
-  "Docker. Verbes déclencheurs, toujours appliqués à du code Go : compiler, " +
-  "builder, cross-compiler, produire un binaire, générer un exécutable. " +
-  "Frontière : ce skill ne fait QUE produire des binaires Go. Il ne compile " +
-  "pas un autre langage (Rust, C, TypeScript…), ne construit pas d'image " +
-  "Docker (`docker build`, Dockerfile), n'exécute pas (`go run`), ne teste " +
-  "pas (`go test`) et ne sert pas à lire, écrire ou corriger du code Go sans " +
-  "en produire de binaire.";
+  "Compile du code Go en binaires macOS, Linux et Windows (amd64 et arm64) " +
+  "dans un conteneur Docker `golang`, sans Go installé localement, via la " +
+  "CLI `build-go`. À UTILISER DÈS QUE l'utilisateur veut compiler un programme " +
+  "Go, en obtenir un exécutable ou un binaire, récupérer un " +
+  "`.exe` Windows ou un binaire Linux / macOS / Apple Silicon / Raspberry Pi, " +
+  "préparer les binaires d'une release Go, lister les cibles " +
+  "disponibles (`build-go targets`), ou diagnostiquer un échec de compilation " +
+  "Go ou l'état de Docker (`build-go doctor`). DÉCLENCHE AUSSI quand il fournit " +
+  "juste un fichier `.go`, un `go.mod` ou un dossier de projet Go et dit « tu " +
+  "peux me le compiler ? », « fais-moi un binaire », « il me faut la version " +
+  "Windows », « je n'ai pas Go installé ». Verbes déclencheurs, toujours " +
+  "appliqués à du Go : compiler, builder, cross-compiler, produire un binaire, " +
+  "générer un exécutable. Frontière : ne produit QUE des binaires Go — pas un " +
+  "autre langage (Rust, C, TypeScript…), pas d'image Docker (`docker build`), " +
+  "pas `go run`, pas `go test`, pas de lecture ni de correction de code Go.";
 
 const TOOL_PURPOSE =
   "CLI de compilation Go multi-architectures. Compile le package `main` d'un " +
